@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reporte de Auditoría ISO 9001</title>
+
+  <!-- Chart.js (gráficas) -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    :root{
+      --ink:#111827;
+      --muted:#475569;
+      --line:#cbd5e1;
+      --bg:#ffffff;
+      --soft:#f8fafc;
+
+      --ok:#16a34a;
+      --warn:#f59e0b;
+      --bad:#dc2626;
+
+      --isoBlue:#1d4ed8;
+    }
+
+    *{ box-sizing:border-box; }
+    body{
+      margin:0;
+      font-family: Arial, Helvetica, sans-serif;
+      color:var(--ink);
+      background: var(--bg);
+    }
+
+    /* Barra superior (no se imprime) */
+    .toolbar{
+      position: sticky;
+      top:0;
+      background:#0b1220;
+      color:#e2e8f0;
+      padding:12px 16px;
+      display:flex;
+      gap:10px;
+      align-items:center;
+      justify-content:space-between;
+      z-index:10;
+      border-bottom:1px solid rgba(148,163,184,.18);
+    }
+    .toolbar .left{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      flex-wrap:wrap;
+    }
+    .toolbar select{
+      padding:8px 10px;
+      border-radius:10px;
+      border:1px solid rgba(148,163,184,.25);
+      background: rgba(2,6,23,.35);
+      color:#e2e8f0;
+      min-width:180px;
+    }
+    .btn{
+      padding:8px 12px;
+      border-radius:10px;
+      border:1px solid rgba(148,163,184,.25);
+      background: rgba(56,189,248,.20);
+      color:#e2e8f0;
+      font-weight:700;
+      cursor:pointer;
+      text-decoration:none;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      white-space:nowrap;
+    }
+    .btn.secondary{ background: rgba(148,163,184,.14); }
+    .btn.danger{ background: rgba(220,38,38,.20); }
+
+    /* Hoja */
+    .page{
+      max-width: 1000px;
+      margin: 22px auto;
+      padding: 18px 22px;
+    }
+
+    .header{
+      border:2px solid var(--line);
+      border-radius:14px;
+      overflow:hidden;
+    }
+    .headerTop{
+      background: linear-gradient(90deg, var(--isoBlue), #0ea5e9);
+      color:white;
+      padding:14px 16px;
+    }
+    .headerTop h1{
+      margin:0;
+      font-size:20px;
+      letter-spacing:.3px;
+    }
+    .headerTop .sub{
+      margin-top:4px;
+      opacity:.9;
+      font-size:12px;
+    }
+    .headerBody{
+      padding:14px 16px;
+      background: var(--soft);
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:12px;
+      border-top:1px solid var(--line);
+    }
+    .field{
+      background:white;
+      border:1px solid var(--line);
+      border-radius:12px;
+      padding:10px 10px;
+    }
+    .field .k{
+      font-size:11px;
+      color:var(--muted);
+      margin-bottom:6px;
+      text-transform:uppercase;
+      letter-spacing:.4px;
+    }
+    .field .v{
+      font-size:13px;
+      min-height:18px;
+    }
+    .editable{
+      outline:none;
+      border-radius:6px;
+      padding:2px 4px;
+    }
+    .editable:focus{
+      box-shadow:0 0 0 2px rgba(29,78,216,.2);
+      background:#eef2ff;
+    }
+
+    h2{
+      margin:18px 0 8px;
+      font-size:16px;
+      border-bottom:1px solid var(--line);
+      padding-bottom:6px;
+    }
+
+    .grid2{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:12px;
+    }
+
+    .card{
+      border:1px solid var(--line);
+      border-radius:14px;
+      padding:12px;
+      background:white;
+    }
+
+    .kpis{
+      display:grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap:10px;
+    }
+    .kpi{
+      border:1px solid var(--line);
+      border-radius:14px;
+      padding:10px;
+      background: var(--soft);
+    }
+    .kpi .k{
+      font-size:11px;
+      color:var(--muted);
+      text-transform:uppercase;
+      letter-spacing:.35px;
+    }
+    .kpi .v{
+      font-size:18px;
+      font-weight:800;
+      margin-top:6px;
+    }
+    .pill{
+      display:inline-block;
+      padding:4px 10px;
+      border-radius:999px;
+      font-size:12px;
+      font-weight:800;
+      border:1px solid var(--line);
+      background:white;
+    }
+    .pill.ok{ color:var(--ok); border-color:rgba(22,163,74,.25); background:rgba(22,163,74,.06); }
+    .pill.warn{ color:var(--warn); border-color:rgba(245,158,11,.25); background:rgba(245,158,11,.07); }
+    .pill.bad{ color:var(--bad); border-color:rgba(220,38,38,.25); background:rgba(220,38,38,.07); }
+
+    table{
+      width:100%;
+      border-collapse: collapse;
+      margin-top:8px;
+    }
+    th, td{
+      border:1px solid var(--line);
+      padding:8px;
+      font-size:12px;
+      vertical-align:top;
+    }
+    th{
+      background: var(--soft);
+      text-align:left;
+    }
+    .rowBad{ background: rgba(220,38,38,.07); }
+    .rowWarn{ background: rgba(245,158,11,.07); }
+
+    .small{ font-size:12px; color:var(--muted); }
+    .note{ font-size:11px; color:var(--muted); margin-top:6px; }
+
+    .charts{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:12px;
+    }
+    .chartBox{
+      border:1px solid var(--line);
+      border-radius:14px;
+      padding:10px;
+      background:white;
+    }
+    .chartBox h3{
+      margin:0 0 8px;
+      font-size:13px;
+      color:#0f172a;
+    }
+    canvas{ max-width:100%; height:240px !important; }
+
+    details{
+      border:1px solid var(--line);
+      border-radius:12px;
+      padding:10px;
+      background:white;
+      margin-top:8px;
+    }
+    summary{
+      cursor:pointer;
+      font-weight:800;
+      color:#0f172a;
+    }
+
+    @media print{
+      .toolbar{ display:none !important; }
+      body{ background:white; }
+      .page{ margin:0; padding:0; }
+      canvas{ height:220px !important; }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- Toolbar (no se imprime) -->
+  <div class="toolbar">
+    <div class="left">
+      <strong>Reporte ISO 9001</strong>
+      <span class="small" style="color:#94a3b8">| Selecciona folio</span>
+      <select id="folioSel"></select>
+      <a class="btn secondary" href="historico.html">📋 Histórico</a>
+      <a class="btn secondary" href="dashboard.html">📊 Dashboard</a>
+      <button class="btn" onclick="window.print()">🖨️ Imprimir / Guardar PDF</button>
+      <button class="btn secondary" onclick="guardarMeta()">💾 Guardar campos</button>
+    </div>
+    <button class="btn danger" onclick="limpiarMeta()">♻️ Reset campos</button>
+  </div>
+
+  <div class="page">
+    <!-- HEADER -->
+    <div class="header">
+      <div class="headerTop">
+        <h1>REPORTE DE AUDITORÍA (ISO 9001:2015)</h1>
+        <div class="sub">Documento generado automáticamente desde el sistema de auditorías (procesos + checklists + evidencia).</div>
+      </div>
+
+      <div class="headerBody">
+        <div class="field">
+          <div class="k">Organización</div>
+          <div class="v editable" id="org" contenteditable="true">Caborca Group</div>
+        </div>
+        <div class="field">
+          <div class="k">Tipo de auditoría</div>
+          <div class="v editable" id="tipoAudit" contenteditable="true">Tercera parte</div>
+        </div>
+        <div class="field">
+          <div class="k">Norma / Criterios</div>
+          <div class="v editable" id="criterios" contenteditable="true">ISO 9001:2015 + requisitos internos aplicables</div>
+        </div>
+        <div class="field">
+          <div class="k">Folio</div>
+          <div class="v"><span class="pill" id="folioTxt">—</span></div>
+        </div>
+
+        <div class="field">
+          <div class="k">Fecha(s) de auditoría</div>
+          <div class="v" id="fechaTxt">—</div>
+        </div>
+        <div class="field">
+          <div class="k">Área auditada (general)</div>
+          <div class="v" id="areaTxt">—</div>
+        </div>
+
+        <div class="field">
+          <div class="k">Objetivo</div>
+          <div class="v editable" id="objetivo" contenteditable="true">
+            Determinar el grado de conformidad del SGC respecto a ISO 9001:2015, evaluar su eficacia e identificar oportunidades de mejora.
+          </div>
+        </div>
+        <div class="field">
+          <div class="k">Alcance</div>
+          <div class="v editable" id="alcance" contenteditable="true">
+            Procesos y actividades auditadas conforme al programa y muestreo definido; incluye los procesos listados en “Resultados por proceso”.
+          </div>
+        </div>
+
+        <div class="field" style="grid-column:1 / -1;">
+          <div class="k">Metodología (evidencia)</div>
+          <div class="v editable" id="metodologia" contenteditable="true">
+            Entrevistas, revisión documental y verificación en sitio con muestreo; registro de hallazgos y evidencias por checklist.
+          </div>
+          <div class="note">
+            Nota: ISO permite flexibilidad de formato, pero el reporte debe comunicar conformidad, no conformidades, oportunidades y facilitar decisiones. [1](https://committee.iso.org/files/live/sites/tc176/files/PDF%20APG%20New%20Disclaimer%2012-2023/ISO-TC%20176-TF_APG-AuditReports.pdf)[2](https://www.novelvista.com/blogs/quality-management/iso-9001-audit-report-writing)
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- KPIs -->
+    <h2>1. Resumen ejecutivo</h2>
+    <div class="kpis">
+      <div class="kpi">
+        <div class="k">Procesos auditados</div>
+        <div class="v" id="kpiProcesos">0</div>
+      </div>
+      <div class="kpi">
+        <div class="k">Checklists ejecutados</div>
+        <div class="v" id="kpiChecklists">0</div>
+      </div>
+      <div class="kpi">
+        <div class="k">Promedio general</div>
+        <div class="v" id="kpiPromedio">0%</div>
+      </div>
+      <div class="kpi">
+        <div class="k">Conclusión</div>
+        <div class="v" id="kpiConclusion"><span class="pill">—</span></div>
+      </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="charts" style="margin-top:12px">
+      <div class="chartBox">
+        <h3>Calificación por proceso (promedio)</h3>
+        <canvas id="chartProceso"></canvas>
+      </div>
+      <div class="chartBox">
+        <h3>Distribución de estatus (checklists)</h3>
+        <canvas id="chartEstatus"></canvas>
+      </div>
+      <div class="chartBox">
+        <h3>Calificación en el tiempo (checklists)</h3>
+        <canvas id="chartTiempo"></canvas>
+      </div>
+      <div class="chartBox">
+        <h3>Top requisitos con “No Cumple”</h3>
+        <canvas id="chartTopNC"></canvas>
+      </div>
+    </div>
+
+    <!-- Resultados por proceso -->
+    <h2>2. Resultados por proceso</h2>
+    <div class="card">
+      <div class="small">
+        Se listan procesos auditados y sus checklists asociados. (Estructura típica de reportes: alcance/criterios/objetivos + resumen + hallazgos). [1](https://committee.iso.org/files/live/sites/tc176/files/PDF%20APG%20New%20Disclaimer%2012-2023/ISO-TC%20176-TF_APG-AuditReports.pdf)[2](https://www.novelvista.com/blogs/quality-management/iso-9001-audit-report-writing)
+      </div>
+      <table id="tblProcesos">
+        <thead>
+          <tr>
+            <th>Proceso</th>
+            <th># Checklists</th>
+            <th>Promedio</th>
+            <th>No conformes</th>
+            <th>Auditores</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- Hallazgos -->
+    <h2>3. Hallazgos (No Conformidades y evidencias)</h2>
+    <div class="card">
+      <div class="small">
+        Listado de ítems “No Cumple” con evidencia registrada. (Reportes ISO normalmente incluyen sección de no conformidades y evidencia). imer%2012-2023/ISO-TC%20176-TF_APG-AuditReports.pdf)[3](https://becnt.com/wp-content/uploads/2023/02/Sample-Internal-Audit-Report-for-QMS.pdf)
+      </div>
+      <table id="tblHallazgos">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Proceso</th>
+            <th>Checklist</th>
+            <th>Requisito</th>
+            <th>Tipo NC</th>
+            <th>Evidencia / Hallazgo</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <div class="note editable" id="notaHallazgos" contenteditable="true" style="margin-top:10px">
+        Nota: En caso de auditoría de tercera parte, asegure que cada NC esté vinculada a criterio aplicable (cláusula/procedimiento) y evidencia objetiva.
+      </div>
+    </div>
+
+    <!-- Conclusión y recomendaciones (sin firmas: eliminamos punto 6 como pediste) -->
+    <h2>4. Conclusión y recomendaciones</h2>
+    <div class="card">
+      <div class="editable" id="conclusionTxt" contenteditable="true">
+        Con base en la evidencia recopilada, el Sistema de Gestión de la Calidad demuestra el grado de conformidad indicado en el Resumen Ejecutivo. Se recomienda dar seguimiento a las No Conformidades y Observaciones, priorizando aquellas con impacto en requisitos del cliente y desempeño del proceso.
+      </div>
+      <div class="note">
+        Sugerencia de redacción y estructura basada en buenas prácticas de reporte (claridad, alcance, criterios, resumen, hallazgos, conclusiones). [2](https://www.novelvista.com/blogs/quality-management/iso-9001-audit-report-writing)[1](https://committee.iso.org/files/live/sites/tc176/files/PDF%20APG%20New%20Disclaimer%2012-2023/ISO-TC%20176-TF_APG-AuditReports.pdf)
+      </div>
+    </div>
+
+  </div>
+
+<script>
+  const STORAGE = "auditorias_por_folio_v1";
+  const META_PREFIX = "reporte_iso_meta_v1:";
+
+  const folioSel = document.getElementById("folioSel");
+
+  let chartProceso, chartEstatus, chartTiempo, chartTopNC;
+
+  function getAuditorias(){
+    return JSON.parse(localStorage.getItem(STORAGE) || "{}");
+  }
+
+  function setSelectFolios(){
+    const auds = getAuditorias();
+    folioSel.innerHTML = "";
+    Object.keys(auds).sort().forEach(f=>{
+      const o = document.createElement("option");
+      o.value = f; o.textContent = f;
+      folioSel.appendChild(o);
+    });
+
+    // Auto-folio si viene desde histórico/dashboard
+    const auto = localStorage.getItem("reporte_folio");
+    if(auto && auds[auto]){
+      folioSel.value = auto;
+      localStorage.removeItem("reporte_folio");
+    }
+  }
+
+  function pillForConclusion(avg){
+    if(avg >= 90) return `<span class="pill ok">Conforme</span>`;
+    if(avg >= 70) return `<span class="pill warn">Con observaciones</span>`;
+    return `<span class="pill bad">No conforme</span>`;
+  }
+
+  function rebuildCharts(data){
+    // data = { procesoProm: {name:prom}, estatusCounts, timeline, topNC }
+
+    if(chartProceso) chartProceso.destroy();
+    if(chartEstatus) chartEstatus.destroy();
+    if(chartTiempo) chartTiempo.destroy();
+    if(chartTopNC) chartTopNC.destroy();
+
+    // Proceso
+    chartProceso = new Chart(document.getElementById("chartProceso"),{
+      type:"bar",
+      data:{
+        labels: Object.keys(data.procesoProm),
+        datasets:[{
+          label:"Promedio (%)",
+          data: Object.values(data.procesoProm),
+          backgroundColor:"#22c55e"
+        }]
+      },
+      options:{ responsive:true, scales:{ y:{ min:0, max:100 } } }
+    });
+
+    // Estatus
+    chartEstatus = new Chart(document.getElementById("chartEstatus"),{
+      type:"doughnut",
+      data:{
+        labels:["Aprobada","Con observaciones","No conforme"],
+        datasets:[{
+          data:[
+            data.estatusCounts["Aprobada"] || 0,
+            data.estatusCounts["Con observaciones"] || 0,
+            data.estatusCounts["No conforme"] || 0
+          ],
+          backgroundColor:["#22c55e","#f59e0b","#ef4444"]
+        }]
+      },
+      options:{ responsive:true }
+    });
+
+    // Tiempo
+    chartTiempo = new Chart(document.getElementById("chartTiempo"),{
+      type:"line",
+      data:{
+        labels: data.timeline.map(x=>x.fecha),
+        datasets:[{
+          label:"Calificación (%)",
+          data: data.timeline.map(x=>x.calificacion),
+          borderColor:"#38bdf8",
+          backgroundColor:"rgba(56,189,248,.18)",
+          tension:.3
+        }]
+      },
+      options:{ responsive:true, scales:{ y:{ min:0, max:100 } } }
+    });
+
+    // Top NC
+    const topLabels = data.topNC.map(x=>x.requisito);
+    const topVals = data.topNC.map(x=>x.count);
+    chartTopNC = new Chart(document.getElementById("chartTopNC"),{
+      type:"bar",
+      data:{
+        labels: topLabels,
+        datasets:[{
+          label:"No Cumple",
+          data: topVals,
+          backgroundColor:"#ef4444"
+        }]
+      },
+      options:{ responsive:true, indexAxis:"y" }
+    });
+  }
+
+  function generar(){
+    const auds = getAuditorias();
+    const folio = folioSel.value;
+    const a = auds[folio];
+    if(!a) return;
+
+    // Header
+    document.getElementById("folioTxt").textContent = folio;
+    document.getElementById("folioTxt").className = "pill";
+    document.getElementById("folioTxt").style.borderColor = "rgba(29,78,216,.25)";
+    document.getElementById("fechaTxt").textContent = a.fecha || "—";
+    document.getElementById("areaTxt").textContent = a.areaAuditada || "—";
+
+    // Aplanar checklists por proceso
+    const procesos = Object.values(a.procesos || {});
+    const procesoProm = {};
+    const estatusCounts = { "Aprobada":0, "Con observaciones":0, "No conforme":0 };
+    const timeline = [];
+    const hallazgos = [];
+    const ncMap = {};
+
+    let totalProcesos = procesos.length;
+    let totalChecklists = 0;
+    let sumCal = 0;
+
+    // Tabla procesos
+    const tbodyP = document.querySelector("#tblProcesos tbody");
+    tbodyP.innerHTML = "";
+
+    procesos.forEach(p=>{
+      const cls = p.checklists || [];
+      if(!cls.length){
+        procesoProm[p.nombre] = 0;
+        return;
+      }
+
+      const auditores = [...new Set(cls.map(x=>x.auditor).filter(Boolean))];
+      const ncCountProc = cls.filter(x=>x.estatus==="No conforme").length;
+
+      totalChecklists += cls.length;
+      const prom = cls.reduce((s,x)=>s+(x.calificacion||0),0)/cls.length;
+      procesoProm[p.nombre] = Number(prom.toFixed(2));
+      sumCal += cls.reduce((s,x)=>s+(x.calificacion||0),0);
+
+      // Estatus + timeline + hallazgos
+      cls.forEach(c=>{
+        estatusCounts[c.estatus] = (estatusCounts[c.estatus]||0) + 1;
+        timeline.push({ fecha: c.fecha || a.fecha || "", calificacion: c.calificacion || 0 });
+
+        (c.requisitos || []).forEach(r=>{
+          if(r.resultado === "No Cumple"){
+            hallazgos.push({
+              proceso: p.nombre,
+              checklistId: c.id || "",
+              requisito: r.requisito || "",
+              tipo: r.tipoNC || "—",
+              evidencia: r.hallazgo || ""
+            });
+
+            const key = r.requisito || "(sin requisito)";
+            ncMap[key] = (ncMap[key]||0) + 1;
+          }
+        });
+      });
+
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${p.nombre}</td>
+        <td>${cls.length}</td>
+        <td>${prom.toFixed(2)}%</td>
+        <td>${ncCountProc}</td>
+        <td>${auditores.length ? auditores.join(", ") : "—"}</td>
+      `;
+      tbodyP.appendChild(tr);
+    });
+
+    // Timeline ordenada
+    timeline.sort((x,y)=> (x.fecha||"").localeCompare(y.fecha||""));
+
+    // KPIs
+    document.getElementById("kpiProcesos").textContent = totalProcesos;
+    document.getElementById("kpiChecklists").textContent = totalChecklists;
+
+    const avg = totalChecklists ? (sumCal/totalChecklists) : 0;
+    document.getElementById("kpiPromedio").textContent = avg.toFixed(2) + "%";
+    document.getElementById("kpiConclusion").innerHTML = pillForConclusion(avg);
+
+    // Hallazgos tabla
+    const tbodyH = document.querySelector("#tblHallazgos tbody");
+    tbodyH.innerHTML = "";
+
+    if(hallazgos.length === 0){
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td colspan="6">No se registraron No Conformidades en los checklists del folio ${folio}.</td>`;
+      tbodyH.appendChild(tr);
+    }else{
+      hallazgos.forEach((h, idx)=>{
+        const tr = document.createElement("tr");
+        tr.className = "rowBad";
+        tr.innerHTML = `
+          <td>${idx+1}</td>
+          <td>${h.proceso}</td>
+          <td>${h.checklistId || "—"}</td>
+          <td>${h.requisito}</td>
+          <td>${h.tipo}</td>
+          <td>${h.evidencia || "—"}</td>
+        `;
+        tbodyH.appendChild(tr);
+      });
+    }
+
+    // Top NC
+    const topNC = Object.entries(ncMap)
+      .sort((a,b)=>b[1]-a[1])
+      .slice(0,8)
+      .map(([requisito,count])=>({ requisito, count }));
+
+    // Charts
+    rebuildCharts({
+      procesoProm,
+      estatusCounts,
+      timeline,
+      topNC
+    });
+
+    // Cargar meta editable guardada
+    cargarMeta();
+  }
+
+  function metaKey(){
+    return META_PREFIX + folioSel.value;
+  }
+
+  function guardarMeta(){
+    const payload = {
+      org: document.getElementById("org").innerText.trim(),
+      tipoAudit: document.getElementById("tipoAudit").innerText.trim(),
+      criterios: document.getElementById("criterios").innerText.trim(),
+      objetivo: document.getElementById("objetivo").innerText.trim(),
+      alcance: document.getElementById("alcance").innerText.trim(),
+      metodologia: document.getElementById("metodologia").innerText.trim(),
+      notaHallazgos: document.getElementById("notaHallazgos").innerText.trim(),
+      conclusionTxt: document.getElementById("conclusionTxt").innerText.trim()
+    };
+    localStorage.setItem(metaKey(), JSON.stringify(payload));
+    // feedback mínimo (sin alertas molestas)
+    console.log("Meta guardada", metaKey());
+  }
+
+  function cargarMeta(){
+    const raw = localStorage.getItem(metaKey());
+    if(!raw) return;
+    try{
+      const m = JSON.parse(raw);
+      if(m.org) document.getElementById("org").innerText = m.org;
+      if(m.tipoAudit) document.getElementById("tipoAudit").innerText = m.tipoAudit;
+      if(m.criterios) document.getElementById("criterios").innerText = m.criterios;
+      if(m.objetivo) document.getElementById("objetivo").innerText = m.objetivo;
+      if(m.alcance) document.getElementById("alcance").innerText = m.alcance;
+      if(m.metodologia) document.getElementById("metodologia").innerText = m.metodologia;
+      if(m.notaHallazgos) document.getElementById("notaHallazgos").innerText = m.notaHallazgos;
+      if(m.conclusionTxt) document.getElementById("conclusionTxt").innerText = m.conclusionTxt;
+    }catch(e){}
+  }
+
+  function limpiarMeta(){
+    localStorage.removeItem(metaKey());
+    // Reestablecer texto default (sin recargar)
+    document.getElementById("org").innerText = "Caborca Group";
+    document.getElementById("tipoAudit").innerText = "Tercera parte";
+    document.getElementById("criterios").innerText = "ISO 9001:2015 + requisitos internos aplicables";
+    document.getElementById("objetivo").innerText = "Determinar el grado de conformidad del SGC respecto a ISO 9001:2015, evaluar su eficacia e identificar oportunidades de mejora.";
+    document.getElementById("alcance").innerText = "Procesos y actividades auditadas conforme al programa y muestreo definido; incluye los procesos listados en “Resultados por proceso”.";
+    document.getElementById("metodologia").innerText = "Entrevistas, revisión documental y verificación en sitio con muestreo; registro de hallazgos y evidencias por checklist.";
+    document.getElementById("notaHallazgos").innerText = "Nota: En caso de auditoría de tercera parte, asegure que cada NC esté vinculada a criterio aplicable (cláusula/procedimiento) y evidencia objetiva.";
+    document.getElementById("conclusionTxt").innerText = "Con base en la evidencia recopilada, el Sistema de Gestión de la Calidad demuestra el grado de conformidad indicado en el Resumen Ejecutivo. Se recomienda dar seguimiento a las No Conformidades y Observaciones, priorizando aquellas con impacto en requisitos del cliente y desempeño del proceso.";
+  }
+
+  // Init
+  setSelectFolios();
+  folioSel.addEventListener("change", generar);
+
+  if(folioSel.options.length){
+    // si no hay auto, toma el primero
+    if(!folioSel.value) folioSel.selectedIndex = 0;
+    generar();
+  } else {
+    // sin data
+    document.querySelector(".page").innerHTML =
+      "<p>No hay auditorías guardadas en el sistema. Genera una auditoría en index.html y guarda procesos.</p>";
+  }
+</script>
+
+</body>
+</html>

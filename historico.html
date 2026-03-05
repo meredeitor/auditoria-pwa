@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Histórico de Auditorías</title>
+
+  <style>
+    :root{
+      --bg:#0b1220;
+      --panel: rgba(15,23,42,.78);
+      --border:rgba(148,163,184,.18);
+      --text:#e2e8f0;
+      --muted:#94a3b8;
+      --ok:#22c55e;
+      --warn:#f59e0b;
+      --bad:#ef4444;
+      --shadow: 0 10px 25px rgba(0,0,0,.25);
+      --radius:14px;
+    }
+    *{ box-sizing:border-box; }
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, Segoe UI, Arial;
+      background: radial-gradient(1200px 600px at 20% 10%, #172554 0%, transparent 60%),
+                  radial-gradient(900px 500px at 80% 0%, #0f766e 0%, transparent 55%),
+                  var(--bg);
+      color: var(--text);
+      padding: 22px;
+    }
+    .container{ max-width: 1200px; margin:0 auto; }
+    h1{ margin:0 0 8px; }
+
+    .panel{
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 16px;
+      margin-bottom:14px;
+      backdrop-filter: blur(8px);
+    }
+
+    .row{
+      display:grid;
+      grid-template-columns: repeat(auto-fit,minmax(200px,1fr));
+      gap:10px;
+    }
+
+    input, select{
+      padding:10px;
+      border-radius:10px;
+      border:1px solid var(--border);
+      background: rgba(2,6,23,.35);
+      color:var(--text);
+    }
+
+    table{
+      width:100%;
+      border-collapse: collapse;
+      margin-top:10px;
+    }
+    th, td{
+      padding:10px;
+      border-bottom:1px solid var(--border);
+      font-size:14px;
+      vertical-align:top;
+    }
+    th{ color:#c7d2fe; text-align:left; }
+
+    tr:hover{ background: rgba(148,163,184,.08); }
+
+    .tag{
+      padding:4px 10px;
+      border-radius:999px;
+      font-size:12px;
+      font-weight:700;
+      display:inline-block;
+    }
+    .ok{ background:rgba(34,197,94,.2); color:#86efac; }
+    .warn{ background:rgba(245,158,11,.2); color:#fde68a; }
+    .bad{ background:rgba(239,68,68,.2); color:#fecaca; }
+
+    button{
+      padding:6px 10px;
+      border-radius:10px;
+      border:1px solid var(--border);
+      background: rgba(2,6,23,.35);
+      color:var(--text);
+      cursor:pointer;
+      font-weight:600;
+    }
+
+    .detalle{ margin-top:14px; display:none; }
+
+    .proceso{
+      margin-top:12px;
+      border:1px solid var(--border);
+      border-radius:12px;
+      padding:12px;
+      background: rgba(2,6,23,.30);
+    }
+
+    .check{
+      border-left:4px solid var(--border);
+      padding:8px 12px;
+      margin:8px 0;
+      border-radius:10px;
+      background: rgba(2,6,23,.35);
+    }
+    .check.ok{ border-color:var(--ok); }
+    .check.bad{ border-color:var(--bad); }
+    .check.warn{ border-color:var(--warn); }
+  </style>
+</head>
+
+<body>
+<div class="container">
+
+  <div class="panel">
+    <h1>Histórico de Auditorías</h1>
+    <p style="color:var(--muted);margin:0">
+      Auditorías con múltiples procesos y checklists
+    </p>
+  </div>
+
+  <!-- Filtros -->
+  <div class="panel">
+    <div class="row">
+      <input id="filtroFolio" placeholder="Folio (AU030)">
+      <input id="filtroProceso" placeholder="Proceso (Almacén)">
+      <select id="filtroEstatus">
+        <option value="">Todos los estatus</option>
+        <option>Aprobada</option>
+        <option>Con observaciones</option>
+        <option>No conforme</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Tabla principal -->
+  <div class="panel">
+    <table>
+      <thead>
+        <tr>
+          <th>Folio</th>
+          <th>Área</th>
+          <th>Procesos</th>
+          <th>Checklists</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="tabla"></tbody>
+    </table>
+  </div>
+
+  <!-- Detalle -->
+  <div class="panel detalle" id="detallePanel">
+    <h2 id="detalleTitulo"></h2>
+    <div id="detalleContenido"></div>
+  </div>
+
+</div>
+
+<script>
+const STORAGE = "auditorias_por_folio_v1";
+
+const tabla = document.getElementById("tabla");
+const detallePanel = document.getElementById("detallePanel");
+const detalleTitulo = document.getElementById("detalleTitulo");
+const detalleContenido = document.getElementById("detalleContenido");
+
+function getAuditorias(){
+  return Object.values(JSON.parse(localStorage.getItem(STORAGE) || "{}"));
+}
+
+function renderTabla(){
+  const f = filtroFolio.value.toLowerCase();
+  const p = filtroProceso.value.toLowerCase();
+  const e = filtroEstatus.value;
+
+  tabla.innerHTML = "";
+
+  getAuditorias()
+    .filter(a => !f || a.folio.toLowerCase().includes(f))
+    .forEach(a => {
+      const procesos = Object.values(a.procesos || {});
+      const totalChecklists = procesos.reduce((n,p)=> n + (p.checklists?.length || 0), 0);
+
+      if(p){
+        const ok = procesos.some(x => x.nombre.toLowerCase().includes(p));
+        if(!ok) return;
+      }
+
+      if(e){
+        const ok = procesos.some(x =>
+          x.checklists?.some(c => c.estatus === e)
+        );
+        if(!ok) return;
+      }
+
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${a.folio}</td>
+        <td>${a.areaAuditada || "-"}</td>
+        <td>${procesos.map(x=>x.nombre).join(", ")}</td>
+        <td>${totalChecklists}</td>
+        <td><button onclick="verDetalle('${a.folio}')">Ver</button></td>
+      `;
+      tabla.appendChild(tr);
+    });
+}
+
+function verDetalle(folio){
+  const a = getAuditorias().find(x => x.folio === folio);
+  if(!a) return;
+
+  detalleTitulo.textContent = `Auditoría ${a.folio}`;
+  detalleContenido.innerHTML = `
+    <p><b>Área:</b> ${a.areaAuditada || "-"}</p>
+    <p><b>Fecha:</b> ${a.fecha || "-"}</p>
+    <hr/>
+  `;
+
+  Object.values(a.procesos || {}).forEach(p => {
+    const divProceso = document.createElement("div");
+    divProceso.className = "proceso";
+    divProceso.innerHTML = `<h3>Proceso: ${p.nombre}</h3>`;
+
+    p.checklists.forEach((c, idx) => {
+      const divChecklist = document.createElement("div");
+      divChecklist.className = "check " +
+        (c.estatus === "Aprobada" ? "ok" :
+         c.estatus === "Con observaciones" ? "warn" : "bad");
+
+      divChecklist.innerHTML = `
+        <p style="margin:0 0 6px">
+          <b>Checklist ${idx + 1}</b><br/>
+          <b>Auditor:</b> ${c.auditor || "-"}<br/>
+          <b>Fecha:</b> ${c.fecha || "-"}<br/>
+          <b>Calificación:</b> ${c.calificacion}%<br/>
+          <b>Estatus:</b> ${c.estatus}
+        </p>
+        <details>
+          <summary style="cursor:pointer;font-weight:600">
+            Ver ítems del checklist
+          </summary>
+          <div style="margin-top:8px"></div>
+        </details>
+      `;
+
+      const contItems = divChecklist.querySelector("details > div");
+
+      (c.requisitos || []).forEach(r => {
+        const item = document.createElement("div");
+        item.className = "check " +
+          (r.resultado === "Cumple" ? "ok" :
+           r.resultado === "No Cumple" ? "bad" : "warn");
+
+        item.innerHTML = `
+          <b>${r.area}</b><br/>
+          ${r.requisito}<br/>
+          <small>
+            Resultado: <b>${r.resultado}</b>
+            ${r.tipoNC ? ` | Tipo NC: <b>${r.tipoNC}</b>` : ""}
+          </small>
+          ${r.hallazgo ? `<p style="margin:6px 0 0">${r.hallazgo}</p>` : ""}
+        `;
+
+        contItems.appendChild(item);
+      });
+
+      divProceso.appendChild(divChecklist);
+    });
+
+    detalleContenido.appendChild(divProceso);
+  });
+
+  detallePanel.style.display = "block";
+  detallePanel.scrollIntoView({ behavior:"smooth" });
+}
+
+// Eventos
+[filtroFolio,filtroProceso,filtroEstatus].forEach(el =>
+  el.addEventListener("input", renderTabla)
+);
+
+// Init
+renderTabla();
+</script>
+</body>
+</html>

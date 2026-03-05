@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard de Auditorías</title>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+:root{
+  --bg:#0b1220;
+  --panel: rgba(15,23,42,.78);
+  --border:rgba(148,163,184,.18);
+  --text:#e2e8f0;
+  --muted:#94a3b8;
+  --ok:#22c55e;
+  --warn:#f59e0b;
+  --bad:#ef4444;
+  --shadow: 0 10px 25px rgba(0,0,0,.25);
+  --radius:14px;
+}
+*{ box-sizing:border-box; }
+body{
+  margin:0;
+  font-family: ui-sans-serif, system-ui, Segoe UI, Arial;
+  background: radial-gradient(1200px 600px at 20% 10%, #172554 0%, transparent 60%),
+              radial-gradient(900px 500px at 80% 0%, #0f766e 0%, transparent 55%),
+              var(--bg);
+  color: var(--text);
+  padding: 22px;
+}
+.container{ max-width: 1200px; margin:auto; }
+h1{ margin:0 0 6px; }
+
+.panel{
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 16px;
+  margin-bottom:14px;
+  backdrop-filter: blur(8px);
+}
+
+.kpis{
+  display:grid;
+  grid-template-columns: repeat(auto-fit,minmax(220px,1fr));
+  gap:14px;
+}
+.kpi{
+  padding:14px;
+  border-radius:14px;
+  border:1px solid var(--border);
+  background: rgba(2,6,23,.35);
+}
+.kpi .label{ color:var(--muted); font-size:13px; }
+.kpi .value{ font-size:26px; font-weight:800; margin-top:4px; }
+
+.grid{
+  display:grid;
+  grid-template-columns: repeat(auto-fit,minmax(420px,1fr));
+  gap:14px;
+}
+canvas{ max-height:320px; }
+</style>
+</head>
+
+<body>
+<div class="container">
+
+  <!-- HEADER -->
+  <div class="panel">
+    <h1>Dashboard de Auditorías</h1>
+    <p style="margin:0;color:var(--muted)">
+      Análisis consolidado por procesos y checklists
+    </p>
+
+    <!-- Badge No Conformes -->
+    <div id="alertNC" style="margin-top:10px;display:none">
+      <span style="
+        display:inline-flex;
+        align-items:center;
+        gap:8px;
+        padding:6px 12px;
+        border-radius:999px;
+        background:rgba(239,68,68,.15);
+        color:#fecaca;
+        font-weight:700;
+        font-size:13px;
+        border:1px solid rgba(239,68,68,.35);
+      ">
+        🔴 <span id="ncCount">0</span> Checklists con No Conformidades
+      </span>
+      <a
+        id="linkVerNC"
+        href="#"
+        style="margin-left:12px;color:#fca5a5;font-size:13px;font-weight:600;text-decoration:underline"
+      >
+        Ver en histórico
+      </a>
+    </div>
+  </div>
+
+  <!-- KPIs -->
+  <div class="panel">
+    <div class="kpis">
+      <div class="kpi">
+        <div class="label">Auditorías (folios)</div>
+        <div class="value" id="kpiFolios">0</div>
+      </div>
+
+      <div class="kpi">
+        <div class="label">Checklists evaluados</div>
+        <div class="value" id="kpiChecks">0</div>
+      </div>
+
+      <div class="kpi">
+        <div class="label">Promedio general</div>
+        <div class="value" id="kpiProm">0%</div>
+      </div>
+
+      <div class="kpi">
+        <div class="label">% Checklists No conformes</div>
+        <div class="value" id="kpiBad">0%</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- GRÁFICAS -->
+  <div class="grid">
+    <div class="panel">
+      <h3>Calificación en el tiempo</h3>
+      <canvas id="chartTiempo"></canvas>
+    </div>
+
+    <div class="panel">
+      <h3>Promedio por proceso</h3>
+      <canvas id="chartProceso"></canvas>
+    </div>
+
+    <div class="panel">
+      <h3>Distribución de estatus (checklists)</h3>
+      <canvas id="chartEstatus"></canvas>
+    </div>
+
+    <div class="panel">
+      <h3>Top procesos con No Conformes</h3>
+      <canvas id="chartNC"></canvas>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const STORAGE = "auditorias_por_folio_v1";
+
+/* =========================
+   Obtener y aplanar datos
+========================= */
+function getAuditorias(){
+  return Object.values(JSON.parse(localStorage.getItem(STORAGE) || "{}"));
+}
+
+function getChecklists(){
+  const checks = [];
+  getAuditorias().forEach(a=>{
+    Object.values(a.procesos || {}).forEach(p=>{
+      (p.checklists || []).forEach(c=>{
+        checks.push({
+          folio: a.folio,
+          proceso: p.nombre,
+          procCode: p.codigo,
+          fecha: c.fecha,
+          calificacion: c.calificacion,
+          estatus: c.estatus
+        });
+      });
+    });
+  });
+  return checks;
+}
+
+const auditorias = getAuditorias();
+const checklists = getChecklists();
+
+/* =========================
+   KPIs
+========================= */
+kpiFolios.textContent = auditorias.length;
+kpiChecks.textContent = checklists.length;
+
+const prom = checklists.length
+  ? checklists.reduce((a,b)=>a+b.calificacion,0)/checklists.length
+  : 0;
+
+kpiProm.textContent = prom.toFixed(1) + "%";
+
+const nc = checklists.filter(c=>c.estatus==="No conforme").length;
+kpiBad.textContent = checklists.length
+  ? Math.round((nc/checklists.length)*100) + "%"
+  : "0%";
+
+/* =========================
+   Badge No Conformes
+========================= */
+if(nc > 0){
+  alertNC.style.display = "block";
+  ncCount.textContent = nc;
+  linkVerNC.onclick = ()=>{
+    localStorage.setItem("historico_filtro_estatus","No conforme");
+    window.location.href = "historico.html";
+  };
+}
+
+/* =========================
+   Gráfica: Tiempo
+========================= */
+const porFecha = [...checklists].sort((a,b)=>a.fecha.localeCompare(b.fecha));
+new Chart(chartTiempo,{
+  type:'line',
+  data:{
+    labels: porFecha.map(c=>c.fecha),
+    datasets:[{
+      label:'Calificación',
+      data: porFecha.map(c=>c.calificacion),
+      borderColor:'#38bdf8',
+      backgroundColor:'rgba(56,189,248,.2)',
+      tension:.3
+    }]
+  },
+  options:{ scales:{ y:{ min:0, max:100 } } }
+});
+
+/* =========================
+   Gráfica: Promedio por Proceso
+========================= */
+const procMap = {};
+checklists.forEach(c=>{
+  if(!procMap[c.proceso]) procMap[c.proceso]=[];
+  procMap[c.proceso].push(c.calificacion);
+});
+
+new Chart(chartProceso,{
+  type:'bar',
+  data:{
+    labels:Object.keys(procMap),
+    datasets:[{
+      label:'Promedio',
+      data:Object.values(procMap).map(v=>v.reduce((a,b)=>a+b,0)/v.length),
+      backgroundColor:'#22c55e'
+    }]
+  },
+  options:{ scales:{ y:{ min:0, max:100 } } }
+});
+
+/* =========================
+   Gráfica: Estatus
+========================= */
+new Chart(chartEstatus,{
+  type:'doughnut',
+  data:{
+    labels:['Aprobadas','Con observaciones','No conformes'],
+    datasets:[{
+      data:[
+        checklists.filter(c=>c.estatus==="Aprobada").length,
+        checklists.filter(c=>c.estatus==="Con observaciones").length,
+        nc
+      ],
+      backgroundColor:['#22c55e','#f59e0b','#ef4444']
+    }]
+  }
+});
+
+/* =========================
+   Gráfica: Top procesos No Conforme
+========================= */
+const ncProc = {};
+checklists.forEach(c=>{
+  if(c.estatus==="No conforme"){
+    ncProc[c.proceso] = (ncProc[c.proceso] || 0) + 1;
+  }
+});
+
+const topNC = Object.entries(ncProc)
+  .sort((a,b)=>b[1]-a[1])
+  .slice(0,5);
+
+new Chart(chartNC,{
+  type:'bar',
+  data:{
+    labels: topNC.map(x=>x[0]),
+    datasets:[{
+      label:'No conformes',
+      data: topNC.map(x=>x[1]),
+      backgroundColor:'#ef4444'
+    }]
+  },
+  options:{ indexAxis:'y' }
+});
+</script>
+</body>
+</html>

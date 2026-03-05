@@ -1,0 +1,1206 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Auditoría - Captura por Proceso</title>
+
+  <link rel="manifest" href="manifest.json" />
+
+  <!-- ✅ XLSX con estilos (fork OSS) -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.min.js"></script>
+
+  <style>
+    :root{
+      --bg:#0b1220;
+      --card:#0f172a;
+      --muted:#94a3b8;
+      --text:#e2e8f0;
+      --border:rgba(148,163,184,.18);
+      --accent:#38bdf8;
+      --ok:#22c55e;
+      --warn:#f59e0b;
+      --bad:#ef4444;
+      --chip:#111c33;
+      --shadow: 0 10px 25px rgba(0,0,0,.25);
+      --radius:14px;
+
+      --panel: rgba(15,23,42,.78);
+      --inputbg: rgba(2,6,23,.35);
+      --btnbg: rgba(2,6,23,.20);
+    }
+
+    *{ box-sizing:border-box; }
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+      background: radial-gradient(1200px 600px at 20% 10%, #172554 0%, transparent 60%),
+                  radial-gradient(900px 500px at 80% 0%, #0f766e 0%, transparent 55%),
+                  var(--bg);
+      color: var(--text);
+      padding: 22px;
+    }
+
+    .container{ max-width: 1100px; margin:0 auto; }
+
+    .topbar{
+      display:flex; align-items:flex-start; justify-content:space-between;
+      gap:14px; margin-bottom: 14px;
+    }
+
+    .title h1{ margin:0; font-size: 26px; letter-spacing:.2px; }
+    .title p{ margin:6px 0 0; color: var(--muted); font-size: 13px; }
+
+    .badge{
+      display:inline-flex; align-items:center; gap:8px;
+      background: rgba(56,189,248,.12);
+      border: 1px solid rgba(56,189,248,.35);
+      color:#bfe9ff;
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-weight: 700;
+      font-size: 13px;
+      white-space:nowrap;
+    }
+
+    .grid{ display:grid; grid-template-columns: 1.35fr .65fr; gap: 14px; }
+    @media (max-width: 900px){ .grid{ grid-template-columns: 1fr; } .topbar{ flex-direction:column; } }
+
+    .panel{
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 16px;
+      backdrop-filter: blur(8px);
+    }
+    .panel h2{ margin:0 0 10px; font-size: 15px; letter-spacing:.2px; color:#dbeafe; }
+
+    .row{ display:grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    @media (max-width: 650px){ .row{ grid-template-columns: 1fr; } }
+
+    label{ font-size: 12px; color: var(--muted); display:block; margin-bottom:6px; }
+    input[type="text"], input[type="date"], input[type="file"], select, textarea{
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      outline: none;
+      background: var(--inputbg);
+      color: var(--text);
+    }
+    textarea{ min-height: 70px; resize: vertical; }
+    input[type="file"]{ padding: 10px; }
+
+    .actions{ display:flex; flex-wrap:wrap; gap:10px; margin-top: 12px; }
+
+    .btn{
+      border: 1px solid var(--border);
+      background: var(--btnbg);
+      color: var(--text);
+      border-radius: 12px;
+      padding: 10px 14px;
+      font-weight: 700;
+      cursor:pointer;
+      transition: .15s ease;
+      text-decoration:none;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+    }
+    .btn:hover{ transform: translateY(-1px); border-color: rgba(56,189,248,.35); }
+    .btn.primary{
+      background: linear-gradient(135deg, rgba(56,189,248,.25), rgba(34,197,94,.12));
+      border-color: rgba(56,189,248,.35);
+    }
+    .btn.danger{
+      background: rgba(239,68,68,.12);
+      border-color: rgba(239,68,68,.35);
+    }
+    .btn:disabled{ opacity:.55; cursor:not-allowed; transform:none; }
+
+    .stats{ display:grid; gap: 10px; }
+    .stat{ background: rgba(2,6,23,.20); border: 1px solid var(--border); border-radius: 14px; padding: 12px; }
+    .stat .k{ color: var(--muted); font-size: 12px; }
+    .stat .v{ font-size: 20px; font-weight: 800; margin-top:4px; }
+
+    .progress{ height: 10px; border-radius: 999px; overflow:hidden; background: rgba(148,163,184,.14); border: 1px solid var(--border); }
+    .bar{ height: 100%; width: 0%; background: linear-gradient(90deg, var(--bad), var(--warn), var(--ok)); transition: width .25s ease; }
+
+    .list{ margin-top: 14px; display:grid; gap: 12px; }
+
+    .reqCard{
+      background: rgba(15,23,42,.70);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 14px;
+      box-shadow: 0 8px 18px rgba(0,0,0,.18);
+    }
+    .cardHead{ display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom: 10px; }
+
+    .chip{
+      display:inline-flex; align-items:center; gap:8px;
+      background: rgba(17,28,51,.9);
+      border: 1px solid var(--border);
+      padding: 6px 10px;
+      border-radius: 999px;
+      color:#cbd5e1;
+      font-size: 12px;
+      font-weight: 700;
+      white-space:nowrap;
+    }
+
+    .reqTitle{ font-weight: 800; margin: 0 0 4px; font-size: 14px; color:#e0f2fe; }
+    .reqDesc{ margin:0; color: var(--text); opacity:.92; line-height: 1.35; }
+
+    .formRow{ display:grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+    @media (max-width: 650px){ .formRow{ grid-template-columns: 1fr; } }
+
+    .hint{ margin-top: 10px; color: var(--muted); font-size: 12px; }
+
+    .pillOK{ border-color: rgba(34,197,94,.45) !important; }
+    .pillBAD{ border-color: rgba(239,68,68,.45) !important; }
+    .pillNA{ border-color: rgba(148,163,184,.35) !important; }
+
+    .footerNote{ margin-top: 12px; font-size: 12px; color: var(--muted); text-align:center; opacity:.9; }
+
+    .alert{
+      margin-top: 10px;
+      border-radius: 14px;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      background: rgba(2,6,23,.20);
+      color: var(--text);
+      display:none;
+    }
+    .alert.show{ display:block; }
+
+    .splitActions{ display:flex; gap:10px; flex-wrap:wrap; margin-top: 10px; }
+    .mini{ font-size: 12px; padding: 8px 10px; border-radius: 10px; }
+
+    .filebar{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+    .fileState{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:6px 12px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.22);
+      background: rgba(2,6,23,.20);
+      color:#e2e8f0;
+      font-weight:800;
+      font-size:12px;
+      white-space:nowrap;
+    }
+    .dirtyDot{
+      width:10px;height:10px;border-radius:50%;
+      background:#f59e0b;
+      display:none;
+      box-shadow:0 0 0 3px rgba(245,158,11,.18);
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+
+    <!-- TOPBAR -->
+    <div class="topbar">
+      <div class="title">
+        <h1>Checklist de Auditoría (por Proceso)</h1>
+        <p>Trabaja como Excel: Abrir auditoría (.aud), Guardar, Guardar como…</p>
+
+        <!-- FILEBAR (lado izquierdo) -->
+        <div class="filebar" style="margin-top:10px">
+          <input type="file" id="fileAud" accept=".aud,.json" style="display:none" onchange="abrirArchivo(event)" />
+
+          <button class="btn mini" onclick="abrirAuditoria()">📂 Abrir auditoría</button>
+          <button class="btn mini" id="btnGuardarArchivo" onclick="guardarAuditoria()">💾 Guardar</button>
+          <button class="btn mini" onclick="guardarAuditoriaComo()">💾 Guardar como…</button>
+
+          <span class="fileState" id="archivoEstado">
+            <span class="dirtyDot" id="dirtyDot"></span>
+            <span id="archivoNombre">Auditoría nueva</span>
+          </span>
+        </div>
+      </div>
+
+      <!-- navegación fija -->
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <a href="historico.html" class="btn mini" target="_blank">📋 Histórico</a>
+        <a href="dashboard.html" class="btn mini" target="_blank">📊 Dashboard</a>
+        <a href="reporte.html" class="btn mini" target="_blank">📄 Reporte ISO</a>
+
+        <div class="badge" id="folioBadge">
+          Folio: <span id="folioText">—</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid">
+      <!-- PANEL DATOS -->
+      <div class="panel">
+        <h2>Datos de la Auditoría</h2>
+
+        <div class="row">
+          <div>
+            <label>Nombre del auditor</label>
+            <input type="text" id="auditorNombre" placeholder="Ej. Hermenegildo Pérez" />
+          </div>
+
+          <div>
+            <label>Área auditada (general)</label>
+            <input type="text" id="areaAuditada" placeholder="Ej. Planta / SGI / Almacén" />
+          </div>
+
+          <div>
+            <label>Fecha de auditoría</label>
+            <input type="date" id="fechaAuditoria" />
+          </div>
+
+          <div>
+            <label>Folio de auditoría</label>
+            <input type="text" id="folio" placeholder="Ej. AU030" />
+          </div>
+
+          <div>
+            <label>Proceso</label>
+            <select id="proceso">
+              <option value="">Seleccionar proceso</option>
+              <option value="ALM">Almacén</option>
+              <option value="PROD">Producción</option>
+              <option value="CAL">Calidad</option>
+              <option value="MNT">Mantenimiento</option>
+              <option value="SGI">SGI</option>
+            </select>
+            <div class="hint">El checklist que captures se guardará dentro de este proceso.</div>
+          </div>
+        </div>
+
+        <div style="margin-top:12px">
+          <label>Cargar Excel de Requisitos (.xlsx/.xls)</label>
+          <input type="file" id="excelFile" accept=".xlsx,.xls" />
+          <div class="hint">
+            El Excel debe contener columnas: <b>ID</b>, <b>Area</b>, <b>Requisito</b>.
+          </div>
+        </div>
+
+        <!-- ACCIONES PRINCIPALES -->
+        <div class="actions">
+          <button class="btn primary" id="btnCalcular" onclick="calcular()" disabled>🧮 Calcular</button>
+          <button class="btn primary" id="btnGuardarProceso" onclick="guardarProceso()" disabled>✅ Guardar Proceso</button>
+          <button class="btn danger" id="btnLimpiarChecklist" onclick="limpiarChecklistUI()" disabled>🧹 Limpiar Checklist</button>
+        </div>
+
+        <!-- Opciones avanzadas (dejamos borrador, pero escondido aquí) -->
+        <details style="margin-top:10px">
+          <summary class="btn mini">⚙️ Opciones avanzadas</summary>
+
+          <div class="splitActions" style="margin-top:10px">
+            <button class="btn mini" id="btnGuardar" onclick="guardarBorradorManual()" disabled>💾 Guardar Borrador</button>
+            <button class="btn mini" id="btnCargarBorrador" onclick="cargarBorradorManual()" disabled>⬇️ Cargar Borrador</button>
+            <button class="btn mini danger" onclick="borrarBorrador()">🗑️ Borrar Borrador</button>
+
+            <button class="btn mini" id="btnExportar" onclick="descargarExcel()" disabled>📄 Exportar Excel</button>
+
+            <button class="btn mini danger" onclick="resetearAuditoria()">♻️ Reset captura</button>
+          </div>
+        </details>
+
+        <div class="hint" id="auditoriasCount" style="margin-top:10px;"></div>
+        <div class="hint" id="folioResumen" style="margin-top:6px;"></div>
+
+        <div class="alert" id="alerta"></div>
+      </div>
+
+      <!-- PANEL RESUMEN -->
+      <div class="panel">
+        <h2>Resumen</h2>
+
+        <div class="stats">
+          <div class="stat">
+            <div class="k">Avance de respuestas</div>
+            <div class="progress"><div class="bar" id="bar"></div></div>
+            <div class="hint"><span id="avanceTxt">0</span>% respondido</div>
+          </div>
+
+          <div class="stat">
+            <div class="k">Calificación (checklist actual)</div>
+            <div class="v" id="resultado">—</div>
+            <div class="hint" id="resultadoLabel">Sin calcular</div>
+          </div>
+
+          <div class="stat">
+            <div class="k">Conteos (checklist actual)</div>
+            <div class="hint">
+              Total: <b id="cTotal">0</b> · Respondidos: <b id="cResp">0</b><br/>
+              Cumple: <b id="cCumple">0</b> · No cumple: <b id="cNo">0</b> · N/A: <b id="cNA">0</b>
+            </div>
+          </div>
+
+          <div class="stat">
+            <div class="k">Estado (checklist actual)</div>
+            <div class="hint" id="estadoTxt">—</div>
+          </div>
+        </div>
+
+        <div class="footerNote">
+          Tip: Guarda por proceso. El archivo .aud es tu “documento” maestro (como Excel).
+        </div>
+      </div>
+    </div>
+
+    <!-- CHECKLIST -->
+    <div class="panel" style="margin-top:14px;">
+      <h2>Checklist</h2>
+      <div id="auditoria" class="list"></div>
+      <div class="hint" id="noDataHint">Aún no has cargado un Excel.</div>
+    </div>
+
+  </div>
+
+<script>
+  /* =====================================================
+     CONFIG / STORAGE
+  ====================================================== */
+  const STORAGE_AUDITORIAS = "auditorias_por_folio_v1";
+  const STORAGE_BORRADOR_PREFIX = "auditoria_borrador_proc_v1:";
+
+  let requisitos = [];
+
+  // Estado del “archivo” como Excel/Word
+  const archivoActual = {
+    nombre: null,
+    cargado: false,
+    dirty: false
+  };
+
+  /* =====================================================
+     HELPERS UI
+  ====================================================== */
+  function hoyISO(){
+    const d = new Date();
+    const m = String(d.getMonth()+1).padStart(2,'0');
+    const day = String(d.getDate()).padStart(2,'0');
+    return `${d.getFullYear()}-${m}-${day}`;
+  }
+
+  function generarFolioAU(){
+    const rnd = String(Math.floor(Math.random()*900)+1).padStart(3,'0');
+    return `AU${rnd}`;
+  }
+
+  function showAlert(msg){
+    const el = document.getElementById('alerta');
+    el.textContent = msg;
+    el.classList.add('show');
+    setTimeout(() => el.classList.remove('show'), 3200);
+  }
+
+  function setDirty(val){
+    archivoActual.dirty = !!val;
+    document.getElementById("dirtyDot").style.display = archivoActual.dirty ? "inline-block" : "none";
+    // (opcional) indicar en el título
+    document.title = archivoActual.dirty ? "*(sin guardar) Auditoría - Captura por Proceso" : "Auditoría - Captura por Proceso";
+  }
+
+  function setFileStatus(){
+    const name = archivoActual.nombre ? archivoActual.nombre : "Auditoría nueva";
+    document.getElementById("archivoNombre").textContent = name;
+   
+  }
+
+  function escapeHtml(str){
+    return String(str)
+      .replace(/&/g,"&amp;")
+      .replace(/</g,"&lt;")
+      .replace(/>/g,"&gt;")
+      .replace(/"/g,"&quot;")
+      .replace(/'/g,"&#039;");
+  }
+
+  function getHeader(){
+    return {
+      auditor: document.getElementById('auditorNombre').value.trim(),
+      areaAud: document.getElementById('areaAuditada').value.trim(),
+      fecha: document.getElementById('fechaAuditoria').value,
+      folio: document.getElementById('folio').value.trim()
+    };
+  }
+
+  function getProceso(){
+    const sel = document.getElementById('proceso');
+    return {
+      codigo: sel.value,
+      nombre: sel.value ? sel.options[sel.selectedIndex].text : ""
+    };
+  }
+
+  function syncFolio(){
+    const f = document.getElementById('folio').value.trim() || '—';
+    document.getElementById('folioText').textContent = f;
+    refrescarResumenFolio();
+  }
+
+  function getDraftKey(){
+    const { folio } = getHeader();
+    const { codigo } = getProceso();
+    if(!folio || !codigo) return null;
+    return `${STORAGE_BORRADOR_PREFIX}${folio}:${codigo}`;
+  }
+
+  function hayBorrador(){
+    const k = getDraftKey();
+    return k ? !!localStorage.getItem(k) : false;
+  }
+
+  function getAuditorias(){
+    return JSON.parse(localStorage.getItem(STORAGE_AUDITORIAS) || "{}");
+  }
+
+  function setAuditorias(obj){
+    localStorage.setItem(STORAGE_AUDITORIAS, JSON.stringify(obj));
+    refrescarCountAuditorias();
+    refrescarResumenFolio();
+  }
+
+  function refrescarCountAuditorias(){
+    const count = Object.keys(getAuditorias()).length;
+    document.getElementById("auditoriasCount").textContent =
+      `Auditorías en histórico (folios): ${count}`;
+  }
+
+  function refrescarResumenFolio(){
+    const { folio } = getHeader();
+    const el = document.getElementById("folioResumen");
+    if(!folio){
+      el.textContent = "";
+      return;
+    }
+    const auds = getAuditorias();
+    const a = auds[folio];
+    if(!a || !a.procesos){
+      el.textContent = "Este folio aún no tiene procesos guardados.";
+      return;
+    }
+    const procesos = Object.values(a.procesos);
+    const totalProcesos = procesos.length;
+    const totalChecklists = procesos.reduce((acc,p)=> acc + (p.checklists?.length || 0), 0);
+    el.innerHTML = `Resumen del folio <b>${escapeHtml(folio)}</b>: Procesos <b>${totalProcesos}</b> · Checklists <b>${totalChecklists}</b>`;
+  }
+
+  /* =====================================================
+     FILE MODE (Abrir / Guardar / Guardar como)
+  ====================================================== */
+  function abrirAuditoria(){
+    document.getElementById("fileAud").click();
+  }
+
+  function abrirArchivo(e){
+    const file = e.target.files[0];
+    if(!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      try{
+        const data = JSON.parse(reader.result);
+
+        // Acepta formato {version, auditorias} o auditorias directo
+        const incoming = data.auditorias || data;
+        if(!incoming || typeof incoming !== "object"){
+          showAlert("Archivo inválido.");
+          return;
+        }
+
+        localStorage.setItem(STORAGE_AUDITORIAS, JSON.stringify(incoming));
+
+        archivoActual.nombre = file.name;
+        archivoActual.cargado = true;
+        setDirty(false);
+        setFileStatus();
+
+        refrescarCountAuditorias();
+        refrescarResumenFolio();
+
+        showAlert(`Archivo abierto: ${file.name}`);
+      }catch(err){
+        showAlert("No se pudo leer el archivo.");
+      }finally{
+        e.target.value = "";
+      }
+    };
+    reader.readAsText(file);
+    
+  }
+
+  function exportarArchivo(nombre){
+    const auditorias = getAuditorias();
+    const payload = {
+      version: "2.0",
+      savedAt: new Date().toISOString(),
+      auditorias
+    };
+
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = nombre;
+    a.click();
+
+    archivoActual.nombre = nombre;
+    archivoActual.cargado = true;
+    setDirty(false);
+    setFileStatus();
+  }
+
+  function guardarAuditoria(){
+    // Si no hay archivo cargado, equivale a Guardar como…
+    if(!archivoActual.cargado){
+      guardarAuditoriaComo();
+      return;
+    }
+    exportarArchivo(archivoActual.nombre);
+    showAlert(`Guardado: ${archivoActual.nombre}`);
+  }
+
+  function guardarAuditoriaComo(){
+    const sugerido = archivoActual.nombre || `Auditoria_${new Date().toISOString().slice(0,10)}.aud`;
+    const nombre = prompt("Nombre del archivo (.aud):", sugerido);
+    if(!nombre) return;
+
+    const finalName = nombre.toLowerCase().endsWith(".aud") ? nombre : (nombre + ".aud");
+    exportarArchivo(finalName);
+    showAlert(`Guardado como: ${finalName}`);
+  }
+
+  /* =====================================================
+     INIT
+  ====================================================== */
+  (function init(){
+    document.getElementById('fechaAuditoria').value = hoyISO();
+    document.getElementById('folio').value = generarFolioAU();
+    syncFolio();
+
+    document.getElementById('folio').addEventListener('input', syncFolio);
+    document.getElementById('auditorNombre').addEventListener('input', validarAcciones);
+    document.getElementById('areaAuditada').addEventListener('input', validarAcciones);
+    document.getElementById('fechaAuditoria').addEventListener('change', validarAcciones);
+    document.getElementById('proceso').addEventListener('change', () => {
+      validarAcciones();
+      refrescarResumenFolio();
+    });
+
+    // autosave borrador (solo si hay checklist)
+    setInterval(() => {
+      if(requisitos && requisitos.length){
+        guardarBorrador();
+      }
+      validarAcciones();
+    }, 5000);
+
+    setFileStatus();
+    refrescarCountAuditorias();
+    validarAcciones();
+  })();
+
+  /* =====================================================
+     EXCEL LOAD
+  ====================================================== */
+  document.getElementById('excelFile').addEventListener('change', function(e){
+    const file = e.target.files[0];
+    if(!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(evt){
+      const data = new Uint8Array(evt.target.result);
+      const workbook = XLSX.read(data, { type:'array' });
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      requisitos = XLSX.utils.sheet_to_json(sheet);
+
+      if(!requisitos || requisitos.length === 0){
+        document.getElementById('auditoria').innerHTML = '';
+        document.getElementById('noDataHint').textContent = 'El Excel no trae registros.';
+        showAlert('El Excel no trae registros.');
+        validarAcciones();
+        return;
+      }
+
+      const ok = requisitos.some(r => ("ID" in r) && ("Area" in r) && ("Requisito" in r));
+      if(!ok){
+        showAlert("Tu Excel debe incluir columnas: ID, Area, Requisito.");
+        requisitos = [];
+        document.getElementById('auditoria').innerHTML = '';
+        document.getElementById('noDataHint').textContent = 'Plantilla inválida.';
+        validarAcciones();
+        return;
+      }
+
+      generarAuditoria();
+      validarAcciones();
+      actualizarResumen();
+      showAlert('Checklist cargado correctamente.');
+    };
+    reader.readAsArrayBuffer(file);
+  });
+
+  function validarAcciones(){
+    const hayReq = requisitos && requisitos.length > 0;
+    const proc = getProceso().codigo;
+
+    document.getElementById('btnCalcular').disabled = !hayReq;
+    document.getElementById('btnGuardarProceso').disabled = !(hayReq && !!proc);
+    document.getElementById('btnExportar').disabled = !hayReq;
+    document.getElementById('btnGuardar').disabled = !hayReq;
+    document.getElementById('btnLimpiarChecklist').disabled = !hayReq;
+
+    document.getElementById('btnCargarBorrador').disabled = !hayBorrador();
+  }
+
+  /* =====================================================
+     UI CHECKLIST
+  ====================================================== */
+  function generarAuditoria(){
+    const contenedor = document.getElementById("auditoria");
+    const hint = document.getElementById("noDataHint");
+    contenedor.innerHTML = "";
+    hint.textContent = "";
+
+    requisitos.forEach((r, i) => {
+      const div = document.createElement("div");
+      div.className = "reqCard";
+
+      const area = (r.Area ?? "Área").toString();
+      const id = (r.ID ?? (i+1)).toString();
+      const req = (r.Requisito ?? "Requisito").toString();
+
+      div.innerHTML = `
+        <div class="cardHead">
+          <div>
+            <div class="reqTitle">${escapeHtml(area)}</div>
+            <p class="reqDesc">${escapeHtml(req)}</p>
+          </div>
+          <div class="chip">ID: ${escapeHtml(id)}</div>
+        </div>
+
+        <div class="formRow">
+          <div>
+            <label>Resultado</label>
+            <select class="respuesta" data-idx="${i}">
+              <option value="">Seleccionar</option>
+              <option value="Cumple">Cumple</option>
+              <option value="No Cumple">No Cumple</option>
+              <option value="NA">N/A</option>
+            </select>
+          </div>
+
+          <div>
+            <label>Tipo NC (solo si No Cumple)</label>
+            <select class="tipoNC" data-idx="${i}" disabled>
+              <option value="">Tipo NC</option>
+              <option value="Mayor">Mayor</option>
+              <option value="Menor">Menor</option>
+            </select>
+          </div>
+
+          <div style="grid-column: 1 / -1;">
+            <label>Hallazgo / Observación</label>
+            <textarea placeholder="Describe el hallazgo (si aplica)" data-idx="${i}"></textarea>
+          </div>
+        </div>
+      `;
+      contenedor.appendChild(div);
+    });
+
+    document.querySelectorAll(".respuesta").forEach(sel => {
+      sel.addEventListener("change", (e) => {
+        const card = e.target.closest(".reqCard");
+        const tipo = card.querySelector(".tipoNC");
+
+        card.classList.remove('pillOK','pillBAD','pillNA');
+        if(e.target.value === "Cumple") card.classList.add('pillOK');
+        if(e.target.value === "No Cumple") card.classList.add('pillBAD');
+        if(e.target.value === "NA") card.classList.add('pillNA');
+
+        if(e.target.value === "No Cumple"){
+          tipo.disabled = false;
+        }else{
+          tipo.value = "";
+          tipo.disabled = true;
+        }
+        actualizarResumen();
+      });
+    });
+
+    document.querySelectorAll(".tipoNC, textarea").forEach(el=>{
+      el.addEventListener("input", actualizarResumen);
+    });
+  }
+
+  /* =====================================================
+     CALIFICACION / RESUMEN
+  ====================================================== */
+  function conteos(){
+    let cumple = 0, no = 0, na = 0, totalRespondidos = 0, totalConsiderados = 0;
+
+    document.querySelectorAll(".respuesta").forEach(s=>{
+      if(s.value !== ""){
+        totalRespondidos++;
+        totalConsiderados++;
+        if(s.value === "Cumple") cumple++;
+        if(s.value === "No Cumple") no++;
+        if(s.value === "NA") na++;
+      }
+    });
+
+    return { cumple, no, na, totalRespondidos, totalConsiderados };
+  }
+
+  function actualizarResumen(){
+    const total = requisitos.length || 0;
+    const { cumple, no, na, totalRespondidos, totalConsiderados } = conteos();
+
+    const avance = total === 0 ? 0 : Math.round((totalRespondidos / total) * 100);
+    document.getElementById("bar").style.width = avance + "%";
+    document.getElementById("avanceTxt").textContent = avance;
+
+    document.getElementById("cTotal").textContent = total;
+    document.getElementById("cResp").textContent = totalRespondidos;
+    document.getElementById("cCumple").textContent = cumple;
+    document.getElementById("cNo").textContent = no;
+    document.getElementById("cNA").textContent = na;
+
+    const est = document.getElementById("estadoTxt");
+    if(totalConsiderados === 0){
+      est.textContent = "Sin respuestas aún.";
+      est.style.color = "var(--muted)";
+      document.getElementById("resultadoLabel").textContent = "Sin calcular";
+      document.getElementById("resultadoLabel").style.color = "var(--muted)";
+      return;
+    }
+
+    const cal = ((cumple + na) / totalConsiderados) * 100;
+    if(cal >= 90){
+      est.textContent = "Aprobada";
+      est.style.color = "var(--ok)";
+    }else if(cal >= 70){
+      est.textContent = "Con observaciones";
+      est.style.color = "var(--warn)";
+    }else{
+      est.textContent = "No conforme";
+      est.style.color = "var(--bad)";
+    }
+  }
+
+  function calcular(){
+    const { totalConsiderados, cumple, na } = conteos();
+    if(totalConsiderados === 0){
+      showAlert("Selecciona al menos una respuesta para calcular.");
+      return;
+    }
+
+    const cal = ((cumple + na) / totalConsiderados) * 100;
+    document.getElementById("resultado").textContent = cal.toFixed(2) + " %";
+
+    const label = document.getElementById("resultadoLabel");
+    if(cal >= 90){
+      label.textContent = "Aprobada";
+      label.style.color = "var(--ok)";
+    }else if(cal >= 70){
+      label.textContent = "Con observaciones";
+      label.style.color = "var(--warn)";
+    }else{
+      label.textContent = "No conforme";
+      label.style.color = "var(--bad)";
+    }
+
+    showAlert("Calificación calculada.");
+  }
+
+  /* =====================================================
+     GUARDAR PROCESO (persistencia real en histórico)
+  ====================================================== */
+  function guardarProceso(){
+    if(!requisitos || requisitos.length === 0){
+      showAlert("No hay checklist cargado.");
+      return;
+    }
+
+    const { auditor, areaAud, fecha, folio } = getHeader();
+    const { codigo: procCode, nombre: procName } = getProceso();
+
+    if(!folio || !fecha || !auditor || !areaAud || !procCode){
+      showAlert("Completa: Folio, Fecha, Auditor, Área y Proceso.");
+      return;
+    }
+
+    const { cumple, no, na, totalRespondidos, totalConsiderados } = conteos();
+    if(totalConsiderados === 0){
+      showAlert("Responde al menos un requisito antes de guardar.");
+      return;
+    }
+
+    const calificacion = ((cumple + na) / totalConsiderados) * 100;
+    const estatus =
+      calificacion >= 90 ? "Aprobada" :
+      calificacion >= 70 ? "Con observaciones" :
+      "No conforme";
+
+    // Detalle por requisito
+    const detalle = [];
+    const cards = document.querySelectorAll(".reqCard");
+    cards.forEach((c, i) => {
+      const r = requisitos[i] || {};
+      detalle.push({
+        id: r.ID ?? (i + 1),
+        area: r.Area ?? "",
+        requisito: r.Requisito ?? "",
+        resultado: c.querySelector(".respuesta")?.value || "",
+        tipoNC: c.querySelector(".tipoNC")?.value || "",
+        hallazgo: c.querySelector("textarea")?.value || ""
+      });
+    });
+
+    const auds = getAuditorias();
+
+    // Crear auditoría si no existe
+    if(!auds[folio]){
+      auds[folio] = {
+        folio,
+        fecha,
+        areaAuditada: areaAud,
+        estado: "En progreso",
+        procesos: {},
+        createdAt: new Date().toISOString()
+      };
+    } else {
+      auds[folio].fecha = auds[folio].fecha || fecha;
+      auds[folio].areaAuditada = auds[folio].areaAuditada || areaAud;
+    }
+
+    // Crear proceso si no existe
+    if(!auds[folio].procesos[procCode]){
+      auds[folio].procesos[procCode] = {
+        codigo: procCode,
+        nombre: procName,
+        checklists: []
+      };
+    }
+
+    // Agregar checklist al proceso
+    const checklistId = `${procCode}-${Date.now()}`;
+    auds[folio].procesos[procCode].checklists.push({
+      id: checklistId,
+      auditor,
+      fecha,
+      areaAuditada: areaAud,
+      calificacion: Number(calificacion.toFixed(2)),
+      estatus,
+      resumen: {
+        total: requisitos.length,
+        respondidos: totalRespondidos,
+        cumple,
+        noCumple: no,
+        na
+      },
+      requisitos: detalle,
+      createdAt: new Date().toISOString()
+    });
+
+    auds[folio].updatedAt = new Date().toISOString();
+
+    setAuditorias(auds);
+
+    // Marca cambios sin guardar en archivo
+    setDirty(true);
+
+    // Al guardar proceso, eliminamos borrador del proceso y limpiamos UI del checklist
+    const dk = getDraftKey();
+    if(dk) localStorage.removeItem(dk);
+
+    limpiarChecklistUI();
+    showAlert(`Proceso ${procName} guardado en ${folio}. Checklist ID: ${checklistId}`);
+  }
+
+  /* =====================================================
+     LIMPIAR SOLO CHECKLIST
+  ====================================================== */
+  function limpiarChecklistUI(){
+    requisitos = [];
+    document.getElementById('excelFile').value = "";
+    document.getElementById('auditoria').innerHTML = "";
+    document.getElementById('noDataHint').textContent = "Carga un checklist para este u otro proceso.";
+
+    document.getElementById('resultado').textContent = "—";
+    document.getElementById('resultadoLabel').textContent = "Sin calcular";
+    document.getElementById('resultadoLabel').style.color = "var(--muted)";
+
+    document.getElementById('bar').style.width = "0%";
+    document.getElementById('avanceTxt').textContent = "0";
+    document.getElementById('cTotal').textContent = "0";
+    document.getElementById('cResp').textContent = "0";
+    document.getElementById('cCumple').textContent = "0";
+    document.getElementById('cNo').textContent = "0";
+    document.getElementById('cNA').textContent = "0";
+    document.getElementById('estadoTxt').textContent = "—";
+    document.getElementById('estadoTxt').style.color = "var(--muted)";
+
+    validarAcciones();
+  }
+
+  function resetearAuditoria(){
+    limpiarChecklistUI();
+    document.getElementById('auditorNombre').value = "";
+    document.getElementById('areaAuditada').value = "";
+    document.getElementById('fechaAuditoria').value = hoyISO();
+    document.getElementById('folio').value = generarFolioAU();
+    document.getElementById('proceso').value = "";
+    syncFolio();
+    showAlert("Captura reseteada (histórico intacto).");
+  }
+
+  /* =====================================================
+     BORRADOR (por folio+proceso)
+  ====================================================== */
+  function guardarBorrador(){
+    const dk = getDraftKey();
+    if(!dk) return;
+    if(!requisitos || !requisitos.length) return;
+
+    const header = getHeader();
+    const proc = getProceso();
+
+    const respuestas = Array.from(document.querySelectorAll(".reqCard")).map((c)=>({
+      resultado: c.querySelector(".respuesta")?.value || "",
+      tipoNC: c.querySelector(".tipoNC")?.value || "",
+      hallazgo: c.querySelector("textarea")?.value || ""
+    }));
+
+    const payload = { header, proceso: proc, requisitos, respuestas, savedAt: new Date().toISOString() };
+    localStorage.setItem(dk, JSON.stringify(payload));
+  }
+
+  function guardarBorradorManual(){
+    const dk = getDraftKey();
+    if(!dk){
+      showAlert("Para guardar borrador selecciona Folio y Proceso.");
+      return;
+    }
+    guardarBorrador();
+    validarAcciones();
+    showAlert("Borrador guardado (folio+proceso).");
+  }
+
+  function cargarBorradorManual(){
+    const dk = getDraftKey();
+    if(!dk){
+      showAlert("Para cargar borrador selecciona Folio y Proceso.");
+      return;
+    }
+    const raw = localStorage.getItem(dk);
+    if(!raw){
+      showAlert("No hay borrador para ese folio+proceso.");
+      return;
+    }
+    cargarBorradorDesdeRaw(raw);
+  }
+
+  function cargarBorradorDesdeRaw(raw){
+    const payload = JSON.parse(raw);
+
+    document.getElementById('auditorNombre').value = payload.header?.auditor || "";
+    document.getElementById('areaAuditada').value = payload.header?.areaAud || "";
+    document.getElementById('fechaAuditoria').value = payload.header?.fecha || hoyISO();
+    document.getElementById('folio').value = payload.header?.folio || generarFolioAU();
+    document.getElementById('proceso').value = payload.proceso?.codigo || "";
+    syncFolio();
+
+    requisitos = payload.requisitos || [];
+    if(!requisitos.length){
+      showAlert("El borrador no contiene requisitos.");
+      return;
+    }
+
+    generarAuditoria();
+
+    setTimeout(() => {
+      const cards = document.querySelectorAll(".reqCard");
+      (payload.respuestas || []).forEach((r,i)=>{
+        const c = cards[i];
+        if(!c) return;
+
+        const sel = c.querySelector(".respuesta");
+        const tipo = c.querySelector(".tipoNC");
+        const txt  = c.querySelector("textarea");
+
+        sel.value = r.resultado || "";
+        sel.dispatchEvent(new Event('change'));
+
+        tipo.value = r.tipoNC || "";
+        txt.value  = r.hallazgo || "";
+      });
+
+      validarAcciones();
+      actualizarResumen();
+      showAlert("Borrador cargado.");
+    }, 0);
+  }
+
+  function borrarBorrador(){
+    const dk = getDraftKey();
+    if(!dk){
+      showAlert("Selecciona Folio y Proceso para borrar el borrador.");
+      return;
+    }
+    localStorage.removeItem(dk);
+    validarAcciones();
+    showAlert("Borrador eliminado.");
+  }
+
+  /* =====================================================
+     EXPORT EXCEL PRO (del checklist actual)
+  ====================================================== */
+  function descargarExcel(){
+    if(!requisitos || requisitos.length === 0){
+      showAlert("No hay requisitos cargados.");
+      return;
+    }
+
+    const { auditor, areaAud, fecha, folio } = getHeader();
+    const { codigo: procCode, nombre: procName } = getProceso();
+
+    const cards = document.querySelectorAll(".reqCard");
+    let rows = [];
+
+    cards.forEach((c, i) => {
+      const res = c.querySelector(".respuesta").value;
+      const tipo = c.querySelector(".tipoNC").value;
+      const hall = c.querySelector("textarea").value;
+
+      const r = requisitos[i] || {};
+      rows.push([
+        folio, fecha, auditor, areaAud, procCode, procName,
+        r.ID ?? (i+1), r.Area ?? "", r.Requisito ?? "",
+        res, tipo, hall
+      ]);
+    });
+
+    const { cumple, no, na, totalRespondidos, totalConsiderados } = conteos();
+    const cal = (totalConsiderados === 0) ? 0 : ((cumple + na) / totalConsiderados) * 100;
+    const estatus = (cal>=90) ? "Aprobada" : (cal>=70) ? "Con observaciones" : "No conforme";
+
+    const sTitle = {
+      font: { bold:true, sz:16, color:{ rgb:"FFFFFF" } },
+      alignment: { horizontal:"center", vertical:"center" },
+      fill: { patternType:"solid", fgColor:{ rgb:"1D4ED8" } }
+    };
+    const sKey = {
+      font: { bold:true, color:{ rgb:"0F172A" } },
+      alignment: { horizontal:"left", vertical:"center" },
+      fill: { patternType:"solid", fgColor:{ rgb:"E2E8F0" } }
+    };
+    const sVal = {
+      font: { color:{ rgb:"0F172A" } },
+      alignment: { horizontal:"left", vertical:"center" }
+    };
+    const borderThin = {
+      top:{ style:"thin", color:{ rgb:"CBD5E1" } },
+      bottom:{ style:"thin", color:{ rgb:"CBD5E1" } },
+      left:{ style:"thin", color:{ rgb:"CBD5E1" } },
+      right:{ style:"thin", color:{ rgb:"CBD5E1" } },
+    };
+    const sHeader = {
+      font: { bold:true, color:{ rgb:"FFFFFF" } },
+      alignment: { horizontal:"center", vertical:"center", wrapText:true },
+      fill: { patternType:"solid", fgColor:{ rgb:"0F172A" } },
+      border: borderThin
+    };
+    const sRowA = {
+      font: { color:{ rgb:"0F172A" } },
+      alignment: { vertical:"top", wrapText:true },
+      fill: { patternType:"solid", fgColor:{ rgb:"FFFFFF" } },
+      border: borderThin
+    };
+    const sRowB = {
+      font: { color:{ rgb:"0F172A" } },
+      alignment: { vertical:"top", wrapText:true },
+      fill: { patternType:"solid", fgColor:{ rgb:"F1F5F9" } },
+      border: borderThin
+    };
+    const sOk = { ...sRowA, fill:{ patternType:"solid", fgColor:{ rgb:"DCFCE7" } } };
+    const sBad= { ...sRowA, fill:{ patternType:"solid", fgColor:{ rgb:"FEE2E2" } } };
+    const sNa = { ...sRowA, fill:{ patternType:"solid", fgColor:{ rgb:"E2E8F0" } } };
+
+    const resumenAOA = [
+      [{ v:"REPORTE DE CHECKLIST (PROCESO)", t:"s", s: sTitle }, { v:"", t:"s", s: sTitle }],
+      ["",""],
+      [{ v:"Folio", t:"s", s:sKey }, { v: folio || "", t:"s", s:sVal }],
+      [{ v:"Fecha", t:"s", s:sKey }, { v: fecha || "", t:"s", s:sVal }],
+      [{ v:"Auditor", t:"s", s:sKey }, { v: auditor || "", t:"s", s:sVal }],
+      [{ v:"Área auditada", t:"s", s:sKey }, { v: areaAud || "", t:"s", s:sVal }],
+      [{ v:"Proceso", t:"s", s:sKey }, { v: `${procCode} - ${procName}`, t:"s", s:sVal }],
+      ["",""],
+      [{ v:"Total requisitos", t:"s", s:sKey }, { v: requisitos.length, t:"n", s:sVal }],
+      [{ v:"Respondidos", t:"s", s:sKey }, { v: totalRespondidos, t:"n", s:sVal }],
+      [{ v:"Cumple", t:"s", s:sKey }, { v: cumple, t:"n", s:sVal }],
+      [{ v:"No cumple", t:"s", s:sKey }, { v: no, t:"n", s:sVal }],
+      [{ v:"N/A", t:"s", s:sKey }, { v: na, t:"n", s:sVal }],
+      ["",""],
+      [{ v:"Calificación", t:"s", s:sKey }, { v: cal.toFixed(2) + " %", t:"s", s:sVal }],
+      [{ v:"Estatus", t:"s", s:sKey }, { v: estatus, t:"s", s:sVal }],
+    ];
+    const wsResumen = XLSX.utils.aoa_to_sheet(resumenAOA);
+    wsResumen["!cols"] = [{ wch: 22 }, { wch: 55 }];
+    wsResumen["!merges"] = [{ s:{r:0,c:0}, e:{r:0,c:1} }];
+
+    const headers = ["Folio","Fecha","Auditor","AreaAuditada","ProcCode","Proceso","ID","Area","Requisito","Resultado","TipoNC","Hallazgo"];
+    const aoa = [headers, ...rows];
+    const wsDetalle = XLSX.utils.aoa_to_sheet(aoa);
+
+    wsDetalle["!autofilter"] = { ref: "A1:L1" };
+    wsDetalle["!cols"] = [
+      { wch: 10 }, { wch: 12 }, { wch: 22 }, { wch: 22 },
+      { wch: 10 }, { wch: 18 }, { wch: 8  }, { wch: 20 },
+      { wch: 60 }, { wch: 14 }, { wch: 10 }, { wch: 50 }
+    ];
+
+    for(let c=0;c<headers.length;c++){
+      const addr = XLSX.utils.encode_cell({ r:0, c });
+      wsDetalle[addr].s = sHeader;
+    }
+
+    for(let r=1;r<aoa.length;r++){
+      const isAlt = (r % 2 === 0);
+      for(let c=0;c<headers.length;c++){
+        const addr = XLSX.utils.encode_cell({ r, c });
+        if(!wsDetalle[addr]) continue;
+
+        let baseStyle = isAlt ? sRowB : sRowA;
+
+        if(c === 9){
+          const val = (wsDetalle[addr].v || "").toString();
+          if(val === "Cumple") baseStyle = { ...baseStyle, ...sOk };
+          if(val === "No Cumple") baseStyle = { ...baseStyle, ...sBad };
+          if(val === "NA") baseStyle = { ...baseStyle, ...sNa };
+        }
+
+        wsDetalle[addr].s = baseStyle;
+      }
+    }
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, wsResumen, "Resumen");
+    XLSX.utils.book_append_sheet(wb, wsDetalle, "Detalle");
+
+    const safe = (folio || "Auditoria").replace(/[^\w\-]+/g, "_");
+    const procSafe = (procCode || "PROC").replace(/[^\w\-]+/g, "_");
+    XLSX.writeFile(wb, `Checklist_${safe}_${procSafe}.xlsx`);
+    showAlert("Excel generado (checklist actual).");
+  }
+</script>
+</body>
+</html>

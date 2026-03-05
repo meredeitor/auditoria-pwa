@@ -1202,6 +1202,29 @@
     showAlert("Excel generado (checklist actual).");
   }
 </script>
+  <script>
+
+if ("serviceWorker" in navigator) {
+
+  window.addEventListener("load", () => {
+
+    navigator.serviceWorker
+      .register("./service-worker.js")
+      .then(reg => {
+
+        console.log("Service Worker registrado");
+
+        reg.update();
+
+      })
+      .catch(err => console.log("Error:", err));
+
+  });
+
+}
+
+</script>
 </body>
 
 </html>
+
